@@ -1,0 +1,321 @@
+version: "3"
+
+# 人間にも AI にも同じコマンドを使わせる（§13）。
+# 機械コア（PR1）＋エージェント統合（PR2）＋オプション層（PR3a: extras / notebook・
+# PR3b: security ゲート = pip-audit / bandit）。
+
+tasks:
+  setup:
+    desc: 初期・再セットアップ（lock 済み Node deps ＋ Python inexact sync ＋ pre-commit hooks）
+    cmds:
+      - node repo-tools/entrypoint.mjs runtime-preflight
+      - npm ci --ignore-scripts
+      - uv sync --inexact
+      - uv run pre-commit install
+
+  setup:node:
+    desc: lock 済み Node dependency を lifecycle script なしで導入
+    cmds:
+      - node repo-tools/entrypoint.mjs runtime-preflight
+      - npm ci --ignore-scripts
+
+  setup:research:
+    desc: research extra（numpy / scipy / matplotlib / pandas）を加算導入
+    cmds:
+      - uv sync --inexact --extra research
+
+  setup:notebook:
+    desc: notebook extra（jupyter / jupytext / nbstripout / nbqa）を加算導入
+    cmds:
+      - uv sync --inexact --extra notebook
+
+  setup:experiment:
+    desc: experiment extra（hydra-core / mlflow / dvc）を加算導入
+    cmds:
+      - uv sync --inexact --extra experiment
+
+  setup:all:
+    desc: 全 extras（research / notebook / experiment）を一括導入
+    cmds:
+      - uv sync --all-extras
+
+  check:
+    desc: offline 品質チェック一式（Node contracts / typecheck / test ＋既存 Python checks）
+    cmds:
+      - node repo-tools/entrypoint.mjs runtime-preflight
+      - |
+        set -eu
+        if [ ! -x node_modules/.bin/tsc ] || \
+          ! npm ls --all --offline --ignore-scripts \
+            --cache=node_modules/.cache/npm-check --logs-max=0 \
+            --update-notifier=false >/dev/null 2>&1; then
+          echo "[FAIL] Node dependency が未導入です: task setup:node" >&2
+          exit 1
+        fi
+        for tool in ruff basedpyright pytest; do
+          if [ ! -x ".venv/bin/$tool" ] || \
+            ! uv run --no-sync "$tool" --version >/dev/null 2>&1; then
+            echo "[FAIL] Python dependency が未導入です: task setup" >&2
+            exit 1
+          fi
+        done
+      - node repo-tools/entrypoint.mjs check-contracts
+      - node repo-tools/entrypoint.mjs skills:verify
+      - node_modules/.bin/tsc --noEmit
+      - node --test repo-tools/*.test.ts
+      - uv run --no-sync ruff format --check .
+      - uv run --no-sync ruff check .
+      - uv run --no-sync basedpyright
+      - uv run --no-sync pytest
+
+  check:isolated:
+    desc: 必須 runtime だけの隔離環境で通常 check が OpenSpec CLI / ネットワークに依存しないことを検証
+    cmds:
+      - |
+        set -eu
+        isolation_root="$(mktemp -d)"
+        trap 'rm -rf "$isolation_root"' EXIT
+        bin="$isolation_root/bin"
+        home="$isolation_root/home"
+        codex_home="$isolation_root/codex-home"
+        xdg_cache="$isolation_root/xdg-cache"
+        xdg_config="$isolation_root/xdg-config"
+        xdg_data="$isolation_root/xdg-data"
+        uv_cache="$isolation_root/uv-cache"
+        mkdir -p "$bin" "$home" "$codex_home" \
+          "$xdg_cache" "$xdg_config" "$xdg_data" "$uv_cache"
+
+        link_tool() {
+          tool="$1"
+          target="$(command -v "$tool" 2>/dev/null || true)"
+          if [ -n "$target" ]; then
+            ln -s "$(readlink -f "$target")" "$bin/$tool"
+          fi
+        }
+        for tool in task uv node npm bash sh git env find ln readlink dirname rm mkdir mktemp \
+          uname sed grep sort head tail xargs realpath chmod cp mv tr cut awk basename \
+          cat touch; do
+          link_tool "$tool"
+        done
+        ln -s "$(readlink -f .venv/bin/python)" "$bin/python"
+        ln -s "$(readlink -f .venv/bin/python)" "$bin/python3"
+
+        env -i \
+          HOME="$home" \
+          CODEX_HOME="$codex_home" \
+          XDG_CACHE_HOME="$xdg_cache" \
+          XDG_CONFIG_HOME="$xdg_config" \
+          XDG_DATA_HOME="$xdg_data" \
+          UV_CACHE_DIR="$uv_cache" \
+          UV_OFFLINE=1 \
+          HTTP_PROXY="http://127.0.0.1:9" \
+          HTTPS_PROXY="http://127.0.0.1:9" \
+          ALL_PROXY="http://127.0.0.1:9" \
+          NO_PROXY="" \
+          PATH="$bin" \
+          REPOSITORY="$PWD" \
+          sh -eu -c '
+            ! command -v openspec >/dev/null 2>&1
+            ! command -v npx >/dev/null 2>&1
+            if [ -n "$(find "$HOME" "$CODEX_HOME" -mindepth 1 -print -quit)" ]; then
+              echo "[FAIL] isolated HOME/CODEX_HOME is not empty" >&2
+              exit 1
+            fi
+            cd "$REPOSITORY"
+            exec task check
+          '
+
+  audit:node:
+    desc: npm advisory database を使う明示的な online audit（high 以上をゲート）
+    cmds:
+      - node repo-tools/entrypoint.mjs runtime-preflight
+      - npm audit --audit-level=high
+
+  fix:
+    desc: 自動修正（ruff format ＋ ruff check --fix）
+    cmds:
+      - uv run ruff format .
+      - uv run ruff check . --fix
+
+  test:
+    desc: pytest を実行
+    cmds:
+      - uv run pytest
+
+  lint:
+    desc: ruff lint
+    cmds:
+      - uv run ruff check .
+
+  typecheck:
+    desc: basedpyright 型チェック
+    cmds:
+      - uv run basedpyright
+
+  hooks:
+    desc: pre-commit hooks を git に登録
+    cmds:
+      - uv run pre-commit install
+
+  doctor:
+    desc: |
+      環境診断（read-only・sync しない）。既定は green を保つ助言診断。
+        task doctor                 # 既定（到達性なし・gh は WARN）
+        task doctor -- --online     # Context7 到達性も確認
+        task doctor -- --github     # gh 不在を FAIL 扱い（GitHub 文脈 opt-in）
+    cmds:
+      - uv run --no-sync python scripts/doctor.py {{.CLI_ARGS}}
+
+  openspec:validate:
+    desc: |
+      OpenSpec change の validate ゲート（invalid で FAIL・非ゼロ終了）。opt-in であり
+      task check / pre-commit には組み込まず、CI は独立 job で検証する。
+      engine 必須（不在は導入案内＋非ゼロ終了）。changes 空は対象ゼロで exit 0。
+      preflight: proposal.md / tasks.md を欠く change は CLI の validate 対象から
+      漏れる（fail-open）ため、CLI 実行前に検査して FAIL にする。
+    cmds:
+      - uv run --no-sync python scripts/openspec-validate-gate.py
+
+  rename:
+    desc: |
+      パッケージ改名。既定は --dry-run（差分表示のみ）。適用は --apply を付ける。
+        task rename -- <module>            # dry-run
+        task rename -- <module> --apply    # 実適用（src 名 + pyproject + uv sync 張り直し）
+    cmds:
+      - uv run python scripts/rename-package.py {{.CLI_ARGS}}
+
+  mcp:setup:
+    desc: MCP 設定（.mcp.json / .codex/config.toml）を template ＋ .env から冪等生成
+    cmds:
+      - bash scripts/setup-mcp.sh
+
+  skills:links:
+    desc: vendored skill の symlink（.claude/skills・.codex/skills）を冪等再生成
+    cmds:
+      - node repo-tools/entrypoint.mjs skills:links {{.CLI_ARGS}}
+
+  skills:verify:
+    desc: sources / lock / installed tree / legal / symlink の整合を offline 検証
+    cmds:
+      - node repo-tools/entrypoint.mjs skills:verify {{.CLI_ARGS}}
+
+  skills:check:
+    desc: public GitHub の remote skill 更新有無を read-only 検査（network / gh 必須）
+    cmds:
+      - node repo-tools/entrypoint.mjs skills:check {{.CLI_ARGS}}
+
+  skills:update:
+    desc: remote skill 更新を preview（既定）または明示 --apply で transaction 適用
+    cmds:
+      - node repo-tools/entrypoint.mjs skills:update {{.CLI_ARGS}}
+
+  skills:lock-local:
+    desc: first-party skill lock を preview（既定）または明示 --apply で一括更新
+    cmds:
+      - node repo-tools/entrypoint.mjs skills:lock-local {{.CLI_ARGS}}
+
+  security:
+    desc: |
+      secret / 依存監査 / SAST。gitleaks（在席時・secret 検出で失敗）＋ pip-audit（コア
+      依存セット・ゲート）＋ bandit（src ゲート・scripts は助言）。pip-audit / bandit は
+      security group（uv run --group security）で実行し CI audit ジョブと範囲・コマンド一致。
+      pip-audit は advisory DB 照会にネットワークを使う（check / doctor には入れない）。
+    cmds:
+      - |
+        if command -v gitleaks >/dev/null 2>&1; then
+          echo "[INFO] gitleaks を実行します"
+          gitleaks detect --no-banner --redact
+        else
+          echo "[WARN] gitleaks 未導入のためスキップ（CI の security ジョブで実行されます）"
+          echo "       導入: https://github.com/gitleaks/gitleaks"
+        fi
+      # pip-audit（ゲート）: 監査対象は uv export の既定セット（default groups = dev ＋
+      # 推移依存）。extras（mlflow / dvc 等）は export 既定で除外＝コアゲート対象外
+      # （extras 込みの任意監査は docs/optional/extras-audit.md）。
+      # 不可避 advisory は理由コメント付き --ignore-vuln <ID>（同 docs 参照）。
+      - |
+        echo "[INFO] pip-audit を実行します（コア依存セット・ゲート）"
+        req="$(mktemp)"
+        uv export --locked --format requirements-txt --no-emit-project -o "$req"
+        uv run --locked --group security pip-audit -r "$req"
+        rm -f "$req"
+      # bandit（ゲート）: 対象は src のみ・severity medium+（-ll）。設定は pyproject
+      # [tool.bandit]（tests / scripts はゲート除外・除外理由もそちらに記載）。
+      - |
+        echo "[INFO] bandit を実行します（src・ゲート）"
+        uv run --locked --group security bandit -c pyproject.toml -r src -ll
+      # bandit（助言・非ゲート）: scripts の指摘（doctor.py / rename-package.py の
+      # subprocess = B603/B607 等）を CI 赤にせず可視化する。
+      - |
+        echo "[INFO] bandit を実行します（scripts・助言・失敗しても継続）"
+        uv run --locked --group security bandit -c pyproject.toml -r scripts -ll || true
+
+  nb:strip:
+    desc: |
+      notebook の出力セルを除去（nbstripout・出力への secret / データ混入防止）。
+      notebook extra 未導入時はスキップ・案内のみ（exit 0）。
+    cmds:
+      - |
+        if [ ! -x .venv/bin/nbstripout ]; then
+          echo "[INFO] nbstripout 未導入のためスキップ（notebook extra）"
+          echo "       導入: task setup:notebook"
+          exit 0
+        fi
+        if [ -z "$(git ls-files -co --exclude-standard -- '*.ipynb')" ]; then
+          echo "[INFO] 対象の .ipynb がありません"
+          exit 0
+        fi
+        git ls-files -coz --exclude-standard -- '*.ipynb' \
+          | xargs -0 uv run --no-sync nbstripout
+        echo "[INFO] nbstripout 完了"
+
+  nb:sync:
+    desc: |
+      ペア済み notebook と対テキスト（py:percent 等）を同期（jupytext --sync）。
+      ペア設定は docs/optional/notebook.md 参照。extra 未導入時はスキップ（exit 0）。
+    cmds:
+      - |
+        if [ ! -x .venv/bin/jupytext ]; then
+          echo "[INFO] jupytext 未導入のためスキップ（notebook extra）"
+          echo "       導入: task setup:notebook"
+          exit 0
+        fi
+        if [ -z "$(git ls-files -co --exclude-standard -- '*.ipynb')" ]; then
+          echo "[INFO] 対象の .ipynb がありません"
+          exit 0
+        fi
+        git ls-files -coz --exclude-standard -- '*.ipynb' \
+          | xargs -0 uv run --no-sync jupytext --sync
+        echo "[INFO] jupytext --sync 完了"
+
+  nb:check:
+    desc: |
+      notebook を ruff で lint（nbqa ruff）。notebook extra 未導入時はスキップ（exit 0）。
+    cmds:
+      - |
+        if [ ! -x .venv/bin/nbqa ]; then
+          echo "[INFO] nbqa 未導入のためスキップ（notebook extra）"
+          echo "       導入: task setup:notebook"
+          exit 0
+        fi
+        if [ -z "$(git ls-files -co --exclude-standard -- '*.ipynb')" ]; then
+          echo "[INFO] 対象の .ipynb がありません"
+          exit 0
+        fi
+        git ls-files -coz --exclude-standard -- '*.ipynb' \
+          | xargs -0 uv run --no-sync nbqa ruff
+
+  prune-template-docs:
+    desc: |
+      docs/template/ 配下のテンプレ固有メタ文書を一括削除。
+      既定は dry-run。実削除は --apply（docs/adr と TEMPLATE_VERSION は不可侵）。
+        task prune-template-docs              # dry-run
+        task prune-template-docs -- --apply   # 実削除
+    cmds:
+      - uv run --no-sync python scripts/prune-template-docs.py {{.CLI_ARGS}}
+
+  clean:
+    desc: キャッシュ・カバレッジ生成物を削除
+    cmds:
+      - rm -rf .ruff_cache .pytest_cache .coverage coverage.xml htmlcov
+      - find . -type d -name __pycache__ -prune -exec rm -rf {} +

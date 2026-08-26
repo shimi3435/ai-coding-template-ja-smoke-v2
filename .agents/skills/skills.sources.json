@@ -1,0 +1,225 @@
+{
+  "schemaVersion": 1,
+  "skills": [
+    {
+      "name": "caveman",
+      "ownership": "remote",
+      "license": "MIT",
+      "redistribution": "allowed",
+      "target": ".agents/skills/caveman",
+      "repository": "juliusbrussee/caveman",
+      "ref": {
+        "branch": "main"
+      },
+      "subtree": {
+        "path": "skills/caveman"
+      },
+      "legalMappings": [
+        {
+          "sourcePath": "LICENSE",
+          "targetPath": "LICENSE",
+          "expectedSha256": "5eb826cd03151bcc7cce3f80d40e87733237fedfc6c36d6908aca5fd650a0bdb"
+        }
+      ]
+    },
+    {
+      "name": "code-review",
+      "ownership": "remote",
+      "license": "MIT",
+      "redistribution": "allowed",
+      "target": ".agents/skills/code-review",
+      "repository": "mattpocock/skills",
+      "ref": {
+        "branch": "main"
+      },
+      "subtree": {
+        "path": "skills/engineering/code-review"
+      },
+      "legalMappings": [
+        {
+          "sourcePath": "LICENSE",
+          "targetPath": "LICENSE",
+          "expectedSha256": "0e7ac423bf2c6e223b7c5b156f8cf72da49d748e56a1641402c31f22ad07dbb5"
+        }
+      ]
+    },
+    {
+      "name": "diagnosing-bugs",
+      "ownership": "remote",
+      "license": "MIT",
+      "redistribution": "allowed",
+      "target": ".agents/skills/diagnosing-bugs",
+      "repository": "mattpocock/skills",
+      "ref": {
+        "branch": "main"
+      },
+      "subtree": {
+        "path": "skills/engineering/diagnosing-bugs"
+      },
+      "legalMappings": [
+        {
+          "sourcePath": "LICENSE",
+          "targetPath": "LICENSE",
+          "expectedSha256": "0e7ac423bf2c6e223b7c5b156f8cf72da49d748e56a1641402c31f22ad07dbb5"
+        }
+      ]
+    },
+    {
+      "name": "domain-modeling",
+      "ownership": "remote",
+      "license": "MIT",
+      "redistribution": "allowed",
+      "target": ".agents/skills/domain-modeling",
+      "repository": "mattpocock/skills",
+      "ref": {
+        "branch": "main"
+      },
+      "subtree": {
+        "path": "skills/engineering/domain-modeling"
+      },
+      "legalMappings": [
+        {
+          "sourcePath": "LICENSE",
+          "targetPath": "LICENSE",
+          "expectedSha256": "0e7ac423bf2c6e223b7c5b156f8cf72da49d748e56a1641402c31f22ad07dbb5"
+        }
+      ]
+    },
+    {
+      "name": "execute-openspec-change",
+      "ownership": "local",
+      "license": "MIT",
+      "redistribution": "allowed",
+      "target": ".agents/skills/execute-openspec-change",
+      "legalMappings": [
+        {
+          "sourcePath": "LICENSE",
+          "expectedSha256": "bb5efecfb1a81e3d7899c8aa5c9fc3ab24cb436b4fe9d8a3420e5ae3f1fdecfb"
+        }
+      ]
+    },
+    {
+      "name": "grill-me",
+      "ownership": "remote",
+      "license": "MIT",
+      "redistribution": "allowed",
+      "target": ".agents/skills/grill-me",
+      "repository": "mattpocock/skills",
+      "ref": {
+        "branch": "main"
+      },
+      "subtree": {
+        "path": "skills/productivity/grill-me"
+      },
+      "legalMappings": [
+        {
+          "sourcePath": "LICENSE",
+          "targetPath": "LICENSE",
+          "expectedSha256": "0e7ac423bf2c6e223b7c5b156f8cf72da49d748e56a1641402c31f22ad07dbb5"
+        }
+      ]
+    },
+    {
+      "name": "grill-with-docs",
+      "ownership": "remote",
+      "license": "MIT",
+      "redistribution": "allowed",
+      "target": ".agents/skills/grill-with-docs",
+      "repository": "mattpocock/skills",
+      "ref": {
+        "branch": "main"
+      },
+      "subtree": {
+        "path": "skills/engineering/grill-with-docs"
+      },
+      "legalMappings": [
+        {
+          "sourcePath": "LICENSE",
+          "targetPath": "LICENSE",
+          "expectedSha256": "0e7ac423bf2c6e223b7c5b156f8cf72da49d748e56a1641402c31f22ad07dbb5"
+        }
+      ]
+    },
+    {
+      "name": "grilling",
+      "ownership": "remote",
+      "license": "MIT",
+      "redistribution": "allowed",
+      "target": ".agents/skills/grilling",
+      "repository": "mattpocock/skills",
+      "ref": {
+        "branch": "main"
+      },
+      "subtree": {
+        "path": "skills/productivity/grilling"
+      },
+      "legalMappings": [
+        {
+          "sourcePath": "LICENSE",
+          "targetPath": "LICENSE",
+          "expectedSha256": "0e7ac423bf2c6e223b7c5b156f8cf72da49d748e56a1641402c31f22ad07dbb5"
+        }
+      ]
+    },
+    {
+      "name": "self-review",
+      "ownership": "local",
+      "license": "MIT",
+      "redistribution": "allowed",
+      "target": ".agents/skills/self-review",
+      "legalMappings": [
+        {
+          "sourcePath": "LICENSE",
+          "expectedSha256": "bb5efecfb1a81e3d7899c8aa5c9fc3ab24cb436b4fe9d8a3420e5ae3f1fdecfb"
+        }
+      ]
+    },
+    {
+      "name": "spec-holes",
+      "ownership": "local",
+      "license": "MIT",
+      "redistribution": "allowed",
+      "target": ".agents/skills/spec-holes",
+      "legalMappings": [
+        {
+          "sourcePath": "LICENSE",
+          "expectedSha256": "bb5efecfb1a81e3d7899c8aa5c9fc3ab24cb436b4fe9d8a3420e5ae3f1fdecfb"
+        }
+      ]
+    },
+    {
+      "name": "tdd",
+      "ownership": "remote",
+      "license": "MIT",
+      "redistribution": "allowed",
+      "target": ".agents/skills/tdd",
+      "repository": "mattpocock/skills",
+      "ref": {
+        "branch": "main"
+      },
+      "subtree": {
+        "path": "skills/engineering/tdd"
+      },
+      "legalMappings": [
+        {
+          "sourcePath": "LICENSE",
+          "targetPath": "LICENSE",
+          "expectedSha256": "0e7ac423bf2c6e223b7c5b156f8cf72da49d748e56a1641402c31f22ad07dbb5"
+        }
+      ]
+    },
+    {
+      "name": "verify-change",
+      "ownership": "local",
+      "license": "MIT",
+      "redistribution": "allowed",
+      "target": ".agents/skills/verify-change",
+      "legalMappings": [
+        {
+          "sourcePath": "LICENSE",
+          "expectedSha256": "bb5efecfb1a81e3d7899c8aa5c9fc3ab24cb436b4fe9d8a3420e5ae3f1fdecfb"
+        }
+      ]
+    }
+  ]
+}
